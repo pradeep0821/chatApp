@@ -26,7 +26,6 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-
 socketHandler(io);
 
 server.listen(process.env.PORT || 5000, () => {
