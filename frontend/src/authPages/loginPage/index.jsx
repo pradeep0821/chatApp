@@ -12,6 +12,8 @@ import {
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
 const LoginPage = () => {
+    const BASE_URL = process.env.REACT_APP_API_URL;
+
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: "",
@@ -33,7 +35,7 @@ const LoginPage = () => {
             return;
         }
 
-        const response = await fetch("http://localhost:5000/api/auth/login", {
+        const response = await fetch(`${BASE_URL}/api/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData),

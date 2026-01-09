@@ -20,6 +20,8 @@ import ChatBox from "../../components/ChatBox";
 const DashboardPage = () => {
     const navigate = useNavigate();
     const [selectedChat, setSelectedChat] = useState(null);
+    const BASE_URL = process.env.REACT_APP_API_URL;
+
 
 
     const [text, setText] = useState("");
@@ -78,7 +80,7 @@ const DashboardPage = () => {
 
         try {
             const response = await fetch(
-                `http://localhost:5000/api/users/search?q=${query}`,
+                `${BASE_URL}/api/users/search?q=${query}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -111,7 +113,7 @@ const DashboardPage = () => {
     const openChat = async (userId) => {
         try {
             const response = await fetch(
-                "http://localhost:5000/api/chats",
+                `${BASE_URL}/api/chats`,
                 {
                     method: "POST",
                     headers: {

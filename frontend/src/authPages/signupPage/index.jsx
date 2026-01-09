@@ -12,6 +12,8 @@ import {
 import PersonAddAltIcon from "@mui/icons-material/PersonAddAlt";
 
 const SignupPage = () => {
+  const BASE_URL = process.env.REACT_APP_API_URL;
+
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -21,7 +23,7 @@ const SignupPage = () => {
   });
 
   const handleSignup = async () => {
-    const response = await fetch("http://localhost:5000/api/auth/register", {
+    const response = await fetch(`${BASE_URL}/api/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

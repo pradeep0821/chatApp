@@ -12,6 +12,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import socket from "../socket";
 
 const ChatBox = ({ chat, onClose }) => {
+    const BASE_URL = process.env.REACT_APP_API_URL;
+
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState("");
     const [currentUser, setCurrentUser] = useState(null);
@@ -51,7 +53,7 @@ const ChatBox = ({ chat, onClose }) => {
     useEffect(() => {
         if (!chat?._id || !token) return;
 
-        fetch(`http://localhost:5000/api/messages/${chat._id}`, {
+        fetch(`${BASE_URL}/api/messages/${chat._id}`, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
@@ -87,7 +89,7 @@ const ChatBox = ({ chat, onClose }) => {
         if (!text.trim() || !currentUser) return;
 
         try {
-            const response = await fetch("http://localhost:5000/api/messages", {
+            const response = await fetch(`${BASE_URL}/api/messages`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
