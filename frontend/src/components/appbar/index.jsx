@@ -1,183 +1,294 @@
-import * as React from "react";
-import PropTypes from "prop-types";
-import AppBar from "@mui/material/AppBar";
-import Box from "@mui/material/Box";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import MenuIcon from "@mui/icons-material/Menu";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
-import LogoutIcon from "@mui/icons-material/Logout";
-import Toolbar from "@mui/material/Toolbar";
-import Typography from "@mui/material/Typography";
-import Tooltip from "@mui/material/Tooltip";
-import { useNavigate } from "react-router-dom";
-import { Avatar, Badge } from "@mui/material";
-
-const drawerWidth = 300;
+import { useEffect, useRef, useState } from "react";
+import { Box, TextField, IconButton, Typography, Avatar, Badge } from "@mui/material";
+import SendIcon from "@mui/icons-material/Send";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import EmojiEmotionsOutlinedIcon from "@mui/icons-material/EmojiEmotionsOutlined";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import socket from "../socket";
 
 const G = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@1,700&display=swap');
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.6;transform:scale(0.9);} }
-  @keyframes shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position: 200% center; }
-  }
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@1,700&display=swap');
+  @keyframes msgIn { from{opacity:0;transform:translateY(8px) scale(0.96)} to{opacity:1;transform:none} }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  @keyframes typing { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+  .message-enter { animation: msgIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  .hide-scrollbar::-webkit-scrollbar { width:4px; }
+  .hide-scrollbar::-webkit-scrollbar-track { background:transparent; }
+  .hide-scrollbar::-webkit-scrollbar-thumb { background:rgba(52,211,153,0.15); border-radius:4px; }
+  .hide-scrollbar::-webkit-scrollbar-thumb:hover { background:rgba(52,211,153,0.35); }
 `;
 
-function DrawerAppBar(props) {
-  const { window } = props;
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const navigate = useNavigate();
+const COLORS = ["#10b981","#0891b2","#6366f1","#f59e0b","#ec4899","#8b5cf6"];
+const getColor = (name) => COLORS[(name?.charCodeAt(0)||0) % COLORS.length];
 
-  const handleDrawerToggle = () => setMobileOpen(v => !v);
-  const handleLogout = () => { localStorage.clear(); navigate("/login", { replace: true }); };
+const ChatArea = ({ chat, onBack, currentUser }) => {
+    const BASE_URL = process.env.REACT_APP_API_URL;
+    const [messages, setMessages] = useState([]);
+    const [text, setText] = useState("");
+    const [loading, setLoading] = useState(false);
+    const token = localStorage.getItem("token");
+    const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const initials = user.name?.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2) || "U";
+    const otherUser = chat?.users?.find(u => u._id !== currentUser?._id) || {};
+    const userColor = getColor(otherUser.name);
 
-  const drawer = (
-    <Box sx={{ height:"100%", display:"flex", flexDirection:"column", background:"#0d111a", fontFamily:"'Outfit', sans-serif" }}>
-      {/* Brand */}
-      <Box sx={{ p:3, display:"flex", alignItems:"center", gap:2, borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-        <Box sx={{ width:38, height:38, borderRadius:"12px", background:"linear-gradient(135deg, #10b981, #0891b2)", display:"flex", alignItems:"center", justifyContent:"center",
-          boxShadow:"0 0 20px rgba(16,185,129,0.3)" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M4 8h16M4 12h10M4 16h13" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </Box>
-        <Typography sx={{ fontFamily:"'Playfair Display', serif", fontWeight:700, color:"#fff", fontSize:"1.15rem", fontStyle:"italic" }}>
-          ChatSphere
-        </Typography>
-      </Box>
+    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages]);
 
-      {/* User profile section */}
-      <Box sx={{ p:2.5, mx:2, mt:2, borderRadius:"14px", background:"rgba(52,211,153,0.05)", border:"1px solid rgba(52,211,153,0.1)" }}>
-        <Box sx={{ display:"flex", alignItems:"center", gap:1.5 }}>
-          <Avatar sx={{ width:40, height:40, background:"linear-gradient(135deg, #10b981, #0891b2)", fontFamily:"'Outfit', sans-serif", fontWeight:700, fontSize:"0.85rem" }}>
-            {initials}
-          </Avatar>
-          <Box>
-            <Typography sx={{ color:"#fff", fontSize:"0.875rem", fontWeight:600, fontFamily:"'Outfit', sans-serif" }}>{user.name || "User"}</Typography>
-            <Box sx={{ display:"flex", alignItems:"center", gap:0.5 }}>
-              <Box sx={{ width:6, height:6, borderRadius:"50%", background:"#34d399", animation:"pulse 2s ease-in-out infinite" }} />
-              <Typography sx={{ color:"#34d399", fontSize:"0.72rem", fontFamily:"'Outfit', sans-serif" }}>Online</Typography>
+    useEffect(() => {
+        if (!chat?._id || !token) return;
+        setLoading(true);
+        fetch(`${BASE_URL}/api/messages/${chat._id}`, { headers:{ Authorization:`Bearer ${token}` } })
+            .then(r=>r.json()).then(d=>setMessages(d||[])).catch(()=>{}).finally(()=>setLoading(false));
+        socket.emit("join_chat", chat._id);
+        return () => socket.emit("leave_chat", chat._id);
+    }, [chat._id, token, BASE_URL]);
+
+    useEffect(() => {
+        socket.on("receive_message", (msg) => {
+            if (msg.chatId === chat._id) setMessages(prev=>[...prev, msg]);
+        });
+        return () => socket.off("receive_message");
+    }, [chat._id]);
+
+    const sendMessage = async () => {
+        if (!text.trim() || !currentUser) return;
+        const msgText = text;
+        setText("");
+        try {
+            const r = await fetch(`${BASE_URL}/api/messages`, {
+                method:"POST",
+                headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+                body: JSON.stringify({ chatId:chat._id, text:msgText }),
+            });
+            const msg = await r.json();
+            socket.emit("send_message", msg);
+            setMessages(prev=>[...prev, msg]);
+        } catch {}
+    };
+
+    const formatTime = (ds) => {
+        if (!ds) return "";
+        return new Date(ds).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+    };
+
+    const formatDate = (ds) => {
+        if (!ds) return "";
+        const d = new Date(ds), now = new Date();
+        const yest = new Date(now); yest.setDate(yest.getDate()-1);
+        if (d.toDateString()===now.toDateString()) return "Today";
+        if (d.toDateString()===yest.toDateString()) return "Yesterday";
+        return d.toLocaleDateString([],{weekday:"long",month:"short",day:"numeric"});
+    };
+
+    const grouped = messages.reduce((acc, m) => {
+        const k = new Date(m.createdAt).toDateString();
+        if (!acc[k]) acc[k] = [];
+        acc[k].push(m);
+        return acc;
+    }, {});
+
+    return (
+        <>
+            <style>{G}</style>
+            <Box sx={{ display:"flex", flexDirection:"column", height:"100%", background:"#080c14", fontFamily:"'Outfit', sans-serif" }}>
+
+                {/* HEADER */}
+                <Box sx={{
+                    px:3, py:2,
+                    display:"flex", alignItems:"center", gap:2,
+                    background:"rgba(13,17,26,0.95)",
+                    backdropFilter:"blur(20px)",
+                    borderBottom:"1px solid rgba(255,255,255,0.06)",
+                    boxShadow:"0 1px 0 rgba(52,211,153,0.08)",
+                }}>
+                    <IconButton onClick={onBack} sx={{ color:"rgba(255,255,255,0.4)", display:{ xs:"flex", md:"none" }, borderRadius:"10px", "&:hover":{ color:"#34d399", background:"rgba(52,211,153,0.08)" } }}>
+                        <ArrowBackIcon sx={{ fontSize:"1.1rem" }} />
+                    </IconButton>
+
+                    <Badge overlap="circular" variant="dot" sx={{ "& .MuiBadge-badge":{ background:"#34d399", boxShadow:"0 0 0 2px #0d111a", width:11, height:11 } }}>
+                        <Avatar sx={{ width:42, height:42, background:`linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontFamily:"'Outfit', sans-serif", fontWeight:700, fontSize:"0.95rem" }}>
+                            {otherUser?.name?.[0]?.toUpperCase() || "?"}
+                        </Avatar>
+                    </Badge>
+
+                    <Box sx={{ flex:1 }}>
+                        <Typography sx={{ fontFamily:"'Outfit', sans-serif", fontWeight:600, color:"rgba(255,255,255,0.9)", fontSize:"0.95rem" }}>
+                            {otherUser?.name || "Chat"}
+                        </Typography>
+                        <Box sx={{ display:"flex", alignItems:"center", gap:0.75 }}>
+                            <Box sx={{ width:6, height:6, borderRadius:"50%", background:"#34d399", animation:"pulse 2s infinite" }} />
+                            <Typography sx={{ fontSize:"0.72rem", color:"#34d399", fontFamily:"'Outfit', sans-serif" }}>Active now</Typography>
+                        </Box>
+                    </Box>
+                </Box>
+
+                {/* MESSAGES */}
+                <Box sx={{ flex:1, overflowY:"auto", p:3, display:"flex", flexDirection:"column", gap:0.5,
+                    background:"linear-gradient(180deg, #080c14 0%, #0a0e1a 100%)" }}
+                    className="hide-scrollbar">
+
+                    {/* Grid subtle background */}
+                    <Box sx={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(52,211,153,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(52,211,153,0.02) 1px, transparent 1px)", backgroundSize:"40px 40px", pointerEvents:"none" }} />
+
+                    {loading ? (
+                        <Box sx={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <Box sx={{ display:"flex", gap:0.75 }}>
+                                {[0,0.2,0.4].map((d,i)=><Box key={i} sx={{ width:8, height:8, borderRadius:"50%", background:"rgba(52,211,153,0.4)", animation:`typing 1.2s ease-in-out ${d}s infinite` }} />)}
+                            </Box>
+                        </Box>
+                    ) : messages.length === 0 ? (
+                        <Box sx={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", zIndex:1 }}>
+                            <Box sx={{ width:70, height:70, borderRadius:"22px", background:"rgba(52,211,153,0.06)", border:"1px solid rgba(52,211,153,0.12)", display:"flex", alignItems:"center", justifyContent:"center", mb:2.5 }}>
+                                <Avatar sx={{ width:48, height:48, background:`linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontSize:"1.2rem", fontWeight:700 }}>
+                                    {otherUser?.name?.[0]?.toUpperCase() || "?"}
+                                </Avatar>
+                            </Box>
+                            <Typography sx={{ fontFamily:"'Outfit', sans-serif", color:"rgba(255,255,255,0.6)", fontWeight:600, mb:0.5 }}>
+                                Start a conversation with {otherUser?.name}
+                            </Typography>
+                            <Typography sx={{ color:"rgba(255,255,255,0.25)", fontSize:"0.82rem", fontFamily:"'Outfit', sans-serif" }}>
+                                Messages are end-to-end encrypted
+                            </Typography>
+                        </Box>
+                    ) : (
+                        Object.entries(grouped).map(([date, msgs]) => (
+                            <Box key={date} sx={{ position:"relative", zIndex:1 }}>
+                                {/* Date pill */}
+                                <Box sx={{ textAlign:"center", my:2.5 }}>
+                                    <Box component="span" sx={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"20px", px:2, py:0.6, color:"rgba(255,255,255,0.35)", fontSize:"0.72rem", fontFamily:"'Outfit', sans-serif", letterSpacing:"0.04em" }}>
+                                        {formatDate(msgs[0]?.createdAt)}
+                                    </Box>
+                                </Box>
+
+                                {msgs.map((msg, idx) => {
+                                    const senderId = typeof msg.sender==="object" ? msg.sender._id : msg.sender;
+                                    const isMe = currentUser && String(senderId)===String(currentUser._id);
+                                    const showAvatar = !isMe && (idx===0 || (typeof msgs[idx-1]?.sender==="object" ? msgs[idx-1]?.sender._id : msgs[idx-1]?.sender) !== senderId);
+                                    const isLast = idx===msgs.length-1 || (typeof msgs[idx+1]?.sender==="object" ? msgs[idx+1]?.sender._id : msgs[idx+1]?.sender) !== senderId;
+
+                                    return (
+                                        <Box key={msg._id || idx} className="message-enter"
+                                            sx={{ display:"flex", justifyContent: isMe?"flex-end":"flex-start", alignItems:"flex-end", gap:1, mb: isLast ? 1.5 : 0.35 }}>
+
+                                            {/* Other user avatar */}
+                                            {!isMe && (
+                                                <Box sx={{ width:30, flexShrink:0 }}>
+                                                    {showAvatar ? (
+                                                        <Avatar sx={{ width:30, height:30, background:`linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontSize:"0.7rem", fontWeight:700 }}>
+                                                            {msg.sender?.name?.[0]?.toUpperCase() || "?"}
+                                                        </Avatar>
+                                                    ) : <Box sx={{ width:30 }} />}
+                                                </Box>
+                                            )}
+
+                                            <Box sx={{ maxWidth:"68%", display:"flex", flexDirection:"column", alignItems: isMe?"flex-end":"flex-start" }}>
+                                                {/* Bubble */}
+                                                <Box sx={{
+                                                    px:2, py:1.25,
+                                                    background: isMe
+                                                        ? "linear-gradient(135deg, #059669, #0891b2)"
+                                                        : "rgba(255,255,255,0.06)",
+                                                    backdropFilter: isMe ? "none" : "blur(10px)",
+                                                    border: isMe
+                                                        ? "1px solid rgba(52,211,153,0.2)"
+                                                        : "1px solid rgba(255,255,255,0.08)",
+                                                    borderRadius: isMe
+                                                        ? "18px 18px 4px 18px"
+                                                        : "18px 18px 18px 4px",
+                                                    boxShadow: isMe
+                                                        ? "0 4px 15px rgba(5,150,105,0.25)"
+                                                        : "0 2px 8px rgba(0,0,0,0.2)",
+                                                    position:"relative",
+                                                }}>
+                                                    <Typography sx={{ fontFamily:"'Outfit', sans-serif", fontSize:"0.875rem", color: isMe ? "#fff" : "rgba(255,255,255,0.85)", lineHeight:1.55, wordBreak:"break-word" }}>
+                                                        {msg.text}
+                                                    </Typography>
+                                                </Box>
+                                                {/* Timestamp */}
+                                                {isLast && (
+                                                    <Typography sx={{ mt:0.4, px:0.5, fontSize:"0.65rem", color:"rgba(255,255,255,0.2)", fontFamily:"'Outfit', sans-serif" }}>
+                                                        {formatTime(msg.createdAt)}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        ))
+                    )}
+                    <div ref={messagesEndRef} />
+                </Box>
+
+                {/* INPUT AREA */}
+                <Box sx={{
+                    p:2.5,
+                    background:"rgba(13,17,26,0.95)",
+                    backdropFilter:"blur(20px)",
+                    borderTop:"1px solid rgba(255,255,255,0.06)",
+                }}>
+                    <Box sx={{ display:"flex", alignItems:"flex-end", gap:1.5,
+                        background:"rgba(255,255,255,0.04)", borderRadius:"18px",
+                        border:"1px solid rgba(255,255,255,0.08)",
+                        p:"8px 8px 8px 16px",
+                        transition:"border-color 0.2s ease",
+                        "&:focus-within":{ borderColor:"rgba(52,211,153,0.3)" },
+                    }}>
+                        <IconButton sx={{ color:"rgba(255,255,255,0.2)", p:0.75, "&:hover":{ color:"rgba(52,211,153,0.6)", background:"transparent" } }}>
+                            <EmojiEmotionsOutlinedIcon sx={{ fontSize:"1.2rem" }} />
+                        </IconButton>
+
+                        <TextField
+                            ref={inputRef}
+                            fullWidth
+                            value={text}
+                            onChange={e=>setText(e.target.value)}
+                            onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }}
+                            placeholder="Type a message..."
+                            multiline
+                            maxRows={4}
+                            disabled={!currentUser}
+                            variant="standard"
+                            sx={{
+                                "& .MuiInputBase-root":{ fontFamily:"'Outfit', sans-serif", fontSize:"0.9rem", color:"rgba(255,255,255,0.85)" },
+                                "& .MuiInput-underline:before":{ display:"none" },
+                                "& .MuiInput-underline:after":{ display:"none" },
+                                "& textarea::placeholder":{ color:"rgba(255,255,255,0.2)", opacity:1 },
+                            }}
+                        />
+
+                        <IconButton sx={{ color:"rgba(255,255,255,0.2)", p:0.75, "&:hover":{ color:"rgba(52,211,153,0.6)", background:"transparent" } }}>
+                            <AttachFileIcon sx={{ fontSize:"1.1rem" }} />
+                        </IconButton>
+
+                        <IconButton
+                            onClick={sendMessage}
+                            disabled={!text.trim() || !currentUser}
+                            sx={{
+                                width:40, height:40, borderRadius:"12px", flexShrink:0,
+                                background: text.trim()
+                                    ? "linear-gradient(135deg, #10b981, #0891b2)"
+                                    : "rgba(255,255,255,0.06)",
+                                color: text.trim() ? "#fff" : "rgba(255,255,255,0.2)",
+                                transition:"all 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+                                transform: text.trim() ? "scale(1.05)" : "scale(1)",
+                                boxShadow: text.trim() ? "0 4px 15px rgba(16,185,129,0.35)" : "none",
+                                "&:hover":{ background: text.trim() ? "linear-gradient(135deg, #059669, #0284c7)" : "rgba(255,255,255,0.08)", transform: text.trim() ? "scale(1.1)" : "none" },
+                                "&.Mui-disabled":{ background:"rgba(255,255,255,0.04)", color:"rgba(255,255,255,0.15)" },
+                            }}
+                        >
+                            <SendIcon sx={{ fontSize:"1rem" }} />
+                        </IconButton>
+                    </Box>
+
+                    <Typography sx={{ textAlign:"center", mt:1.5, fontSize:"0.67rem", color:"rgba(255,255,255,0.12)", fontFamily:"'Outfit', sans-serif", letterSpacing:"0.04em" }}>
+                        🔒 End-to-end encrypted
+                    </Typography>
+                </Box>
             </Box>
-          </Box>
-        </Box>
-      </Box>
+        </>
+    );
+};
 
-      <List sx={{ flex:1, px:2, py:2 }}>
-        <Typography sx={{ px:1.5, pb:1, color:"rgba(255,255,255,0.25)", fontSize:"0.68rem", letterSpacing:"0.12em", fontFamily:"'Outfit', sans-serif", textTransform:"uppercase" }}>
-          Navigation
-        </Typography>
-        <ListItem disablePadding>
-          <ListItemButton sx={{ borderRadius:"12px", py:1.4, gap:0.5,
-            background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.12)",
-            "&:hover":{ background:"rgba(52,211,153,0.12)" } }}>
-            <ListItemIcon sx={{ minWidth:40 }}>
-              <ChatBubbleOutlineIcon sx={{ color:"#34d399", fontSize:"1.1rem" }} />
-            </ListItemIcon>
-            <ListItemText primary="All Chats" primaryTypographyProps={{ sx:{ color:"#34d399", fontWeight:600, fontFamily:"'Outfit', sans-serif", fontSize:"0.9rem" } }} />
-          </ListItemButton>
-        </ListItem>
-      </List>
-
-      <Box sx={{ p:2, borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-        <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout} sx={{ borderRadius:"12px", py:1.4,
-            "&:hover":{ background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.15)" },
-            border:"1px solid transparent", transition:"all 0.2s ease" }}>
-            <ListItemIcon sx={{ minWidth:40 }}>
-              <LogoutIcon sx={{ color:"#ef4444", fontSize:"1.1rem" }} />
-            </ListItemIcon>
-            <ListItemText primary="Sign Out" primaryTypographyProps={{ sx:{ color:"#ef4444", fontWeight:500, fontFamily:"'Outfit', sans-serif", fontSize:"0.9rem" } }} />
-          </ListItemButton>
-        </ListItem>
-      </Box>
-    </Box>
-  );
-
-  const container = window !== undefined ? () => window().document.body : undefined;
-
-  return (
-    <>
-      <style>{G}</style>
-      <AppBar position="fixed" elevation={0} sx={{
-        background:"rgba(8,12,20,0.85)",
-        backdropFilter:"blur(20px)",
-        borderBottom:"1px solid rgba(255,255,255,0.06)",
-        boxShadow:"0 1px 0 rgba(52,211,153,0.1)",
-      }}>
-        <Toolbar sx={{ justifyContent:"space-between", px:{ xs:2, md:3 } }}>
-          <Box sx={{ display:"flex", alignItems:"center", gap:1.5 }}>
-            <IconButton onClick={handleDrawerToggle} sx={{ color:"rgba(255,255,255,0.5)", "&:hover":{ color:"#34d399", background:"rgba(52,211,153,0.08)" }, borderRadius:"10px" }}>
-              <MenuIcon />
-            </IconButton>
-            <Box sx={{ display:"flex", alignItems:"center", gap:1.2 }}>
-              <Box sx={{ width:32, height:32, borderRadius:"10px", background:"linear-gradient(135deg, #10b981, #0891b2)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 8h16M4 12h10M4 16h13" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-                </svg>
-              </Box>
-              <Typography sx={{
-                fontFamily:"'Playfair Display', serif",
-                fontWeight:700,
-                color:"#fff",
-                fontSize:"1.1rem",
-                fontStyle:"italic",
-                background:"linear-gradient(90deg, #fff, #34d399, #fff)",
-                backgroundSize:"200% auto",
-                WebkitBackgroundClip:"text",
-                WebkitTextFillColor:"transparent",
-                animation:"shimmer 4s linear infinite",
-              }}>
-                ChatSphere
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box sx={{ display:"flex", alignItems:"center", gap:1.5 }}>
-            <Tooltip title={user.name || "User"} arrow>
-              <Box sx={{ display:"flex", alignItems:"center", gap:1, cursor:"pointer",
-                background:"rgba(255,255,255,0.04)", borderRadius:"12px", px:1.5, py:0.8,
-                border:"1px solid rgba(255,255,255,0.08)",
-                "&:hover":{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(52,211,153,0.2)" },
-                transition:"all 0.2s ease" }}>
-                <Badge overlap="circular" variant="dot" sx={{ "& .MuiBadge-badge":{ background:"#34d399", boxShadow:"0 0 0 2px #080c14" } }}>
-                  <Avatar sx={{ width:30, height:30, background:"linear-gradient(135deg, #10b981, #0891b2)", fontSize:"0.75rem", fontWeight:700 }}>
-                    {initials}
-                  </Avatar>
-                </Badge>
-                <Typography sx={{ color:"rgba(255,255,255,0.7)", fontSize:"0.82rem", fontWeight:500, fontFamily:"'Outfit', sans-serif", display:{ xs:"none", sm:"block" } }}>
-                  {user.name?.split(" ")[0] || "User"}
-                </Typography>
-              </Box>
-            </Tooltip>
-
-            <Tooltip title="Sign Out" arrow>
-              <IconButton onClick={handleLogout} sx={{ color:"rgba(255,255,255,0.35)", borderRadius:"10px",
-                "&:hover":{ color:"#ef4444", background:"rgba(239,68,68,0.08)" }, transition:"all 0.2s ease" }}>
-                <LogoutIcon sx={{ fontSize:"1.1rem" }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Toolbar>
-      </AppBar>
-
-      <Drawer container={container} variant="temporary" open={mobileOpen} onClose={handleDrawerToggle}
-        ModalProps={{ keepMounted:true }}
-        sx={{ display:{ xs:"block", sm:"none" }, "& .MuiDrawer-paper":{ boxSizing:"border-box", width:drawerWidth, background:"#0d111a", borderRight:"1px solid rgba(255,255,255,0.06)" } }}>
-        {drawer}
-      </Drawer>
-      <Toolbar />
-    </>
-  );
-}
-
-DrawerAppBar.propTypes = { window: PropTypes.func };
-export default DrawerAppBar;
+export default ChatArea;

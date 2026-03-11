@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Box, Button, Typography, Stack } from "@mui/material";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import LoginIcon from "@mui/icons-material/Login";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 const G = `
@@ -54,7 +52,6 @@ const Particle = ({ style }) => (
 );
 
 export default function LandingPage() {
-  const navigate = useNavigate();
   const [hovered, setHovered] = useState(null);
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(()=>setTick(v=>v+1),2800); return ()=>clearInterval(t); }, []);
