@@ -102,7 +102,12 @@ const LoginPage = () => {
       }
       localStorage.setItem("token", result.token);
       const decoded = jwtDecode(result.token);
-      localStorage.setItem("user", JSON.stringify({ id: decoded.id, name: decoded.name }));
+      // Fix: Store with _id for backend compatibility
+      localStorage.setItem("user", JSON.stringify({ 
+        _id: decoded.id, 
+        id: decoded.id, 
+        name: decoded.name 
+      }));
       navigate("/dashboard");
     } catch {
       setError("An error occurred. Please try again.");
