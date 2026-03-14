@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -42,9 +42,9 @@ const ProfilePage = () => {
       return;
     }
     fetchUser();
-  }, [token, navigate]);
+  }, [token, navigate, fetchUser]);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const res = await axios.get(`${BASE_URL}/users/me`, { 
         headers: { Authorization: `Bearer ${token}` }
@@ -57,7 +57,7 @@ const ProfilePage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [BASE_URL, token]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -160,7 +160,7 @@ const ProfilePage = () => {
                 <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 5 }}>
                     <Box sx={{ position: "relative" }}>
                         <Avatar 
-                            src={imagePreview || (user?.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${RAW_URL}/${user.profilePic.replace(/\\/g, '/')}`) : undefined)} 
+                            src={imagePreview || (user?.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${RAW_URL}/${user.profilePic.replace(/\\/g, '/').replace(/^\//, '')}`) : undefined)} 
                             sx={{ 
                                 width: 110, height: 110, 
                                 fontSize: "2.5rem", fontFamily: "'Outfit', sans-serif", fontWeight: 700,

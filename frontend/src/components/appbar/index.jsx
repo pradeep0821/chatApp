@@ -22,7 +22,7 @@ const getColor = (name) => {
 
 const DrawerAppBar = () => {
     const navigate = useNavigate();
-    const { theme } = useThemeContext();
+    const { setTheme } = useThemeContext();
     const muiTheme = useTheme();
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
@@ -35,7 +35,6 @@ const DrawerAppBar = () => {
     })();
 
     const userName = user?.name || "User";
-    const userColor = getColor(userName);
 
     const handleOpen = (e) => setAnchorEl(e.currentTarget);
     const handleClose = () => setAnchorEl(null);
@@ -106,6 +105,7 @@ const DrawerAppBar = () => {
                                       fontWeight: 700,
                                       fontSize: "0.9rem",
                                       cursor: "pointer",
+                                      background: `linear-gradient(135deg, ${getColor(userName)}, ${getColor(userName)}88)`,
                                     }}
                                     src={user?.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${user.profilePic.replace(/\\/g, '/')}`) : undefined}
                                   >

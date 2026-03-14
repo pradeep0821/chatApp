@@ -152,7 +152,6 @@ const ChatArea = ({ chat, onBack, currentUser, onlineUsers, lastSeenMap }) => {
     const formatLastSeen = (ds) => {
         try {
             if (!ds) return "Offline";
-            const d = new Date(ds);
             return `Last seen ${formatDate(ds) === "Today" ? "at " + formatTime(ds) : formatDate(ds)}`;
         } catch {
             return "Offline";
