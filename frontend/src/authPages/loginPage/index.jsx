@@ -101,13 +101,13 @@ const LoginPage = () => {
         return;
       }
       localStorage.setItem("token", result.token);
-      const decoded = jwtDecode(result.token);
-      // Fix: Store with _id for backend compatibility
-      localStorage.setItem("user", JSON.stringify({ 
-        _id: decoded.id, 
-        id: decoded.id, 
-        name: decoded.name 
+      localStorage.setItem("user", JSON.stringify(result.user || {
+        _id: jwtDecode(result.token).id,
+        id: jwtDecode(result.token).id,
+        name: jwtDecode(result.token).name
       }));
+      // Dispatch custom event to sync theme instantly
+      window.dispatchEvent(new Event('user-login'));
       navigate("/dashboard");
     } catch {
       setError("An error occurred. Please try again.");

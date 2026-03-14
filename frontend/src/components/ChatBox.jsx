@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, TextField, IconButton, Typography, Avatar, Badge } from "@mui/material";
+import { Box, TextField, IconButton, Typography, Avatar, Badge, useTheme } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EmojiEmotionsOutlinedIcon from "@mui/icons-material/EmojiEmotionsOutlined";
@@ -32,7 +32,8 @@ const getId = (obj) => {
     return null;
 };
 
-const ChatArea = ({ chat, onBack, currentUser }) => {
+const ChatArea = ({ chat, onBack, currentUser, onlineUsers, lastSeenMap }) => {
+    const theme = useTheme();
     const BASE_URL = process.env.REACT_APP_API_URL || "";
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState("");
@@ -63,6 +64,9 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
     })();
 
     const userColor = getColor(otherUser?.name ?? "");
+    const otherUserId = getId(otherUser);
+    const isOnline = onlineUsers?.has?.(otherUserId);
+    const lastSeen = lastSeenMap?.[otherUserId] || otherUser?.lastLogin;
 
     useEffect(() => {
         try { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }
@@ -99,8 +103,8 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
     // Guard: don't render UI if essential data is missing
     if (!chat || !chatId) {
         return (
-            <Box sx={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", background: "#080c14" }}>
-                <Typography sx={{ color: "rgba(255,255,255,0.3)", fontFamily: "'Outfit', sans-serif" }}>
+            <Box sx={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", background: theme.palette.background.default }}>
+                <Typography sx={{ color: theme.palette.text.secondary, fontFamily: "'Outfit', sans-serif" }}>
                     Select a chat to start messaging
                 </Typography>
             </Box>
@@ -145,6 +149,16 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
         } catch { return ""; }
     };
 
+    const formatLastSeen = (ds) => {
+        try {
+            if (!ds) return "Offline";
+            const d = new Date(ds);
+            return `Last seen ${formatDate(ds) === "Today" ? "at " + formatTime(ds) : formatDate(ds)}`;
+        } catch {
+            return "Offline";
+        }
+    }
+
     const grouped = messages.reduce((acc, m) => {
         try {
             if (!m || !m.createdAt) return acc;
@@ -158,22 +172,22 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
     return (
         <>
             <style>{G}</style>
-            <Box sx={{ display: "flex", flexDirection: "column", height: "100%", background: "#080c14", fontFamily: "'Outfit', sans-serif" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", height: "100%", background: theme.palette.background.default, fontFamily: "'Outfit', sans-serif" }}>
 
                 {/* HEADER */}
                 <Box sx={{
                     px: 3, py: 2,
                     display: "flex", alignItems: "center", gap: 2,
-                    background: "rgba(13,17,26,0.95)",
+                    background: theme.palette.background.paper,
                     backdropFilter: "blur(20px)",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                    borderBottom: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
                     boxShadow: "0 1px 0 rgba(52,211,153,0.08)",
                 }}>
                     {onBack && (
                         <IconButton
                             onClick={onBack}
                             sx={{
-                                color: "rgba(255,255,255,0.4)",
+                                color: theme.palette.text.secondary,
                                 display: { xs: "flex", md: "none" },
                                 borderRadius: "10px",
                                 "&:hover": { color: "#34d399", background: "rgba(52,211,153,0.08)" },
@@ -184,18 +198,29 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                     )}
 
                     <Badge overlap="circular" variant="dot" sx={{ "& .MuiBadge-badge": { background: "#34d399", boxShadow: "0 0 0 2px #0d111a", width: 11, height: 11 } }}>
-                        <Avatar sx={{ width: 42, height: 42, background: `linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontWeight: 700, fontSize: "0.95rem" }}>
+                        <Avatar 
+                            src={otherUser?.profilePic ? (otherUser.profilePic.startsWith('http') ? otherUser.profilePic : `${BASE_URL.replace('/api', '')}/${otherUser.profilePic.replace(/\\/g, '/')}`) : undefined}
+                            sx={{ width: 42, height: 42, background: `linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontWeight: 700, fontSize: "0.95rem" }}
+                        >
                             {otherUser?.name?.[0]?.toUpperCase() ?? "?"}
                         </Avatar>
                     </Badge>
 
                     <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, color: "rgba(255,255,255,0.9)", fontSize: "0.95rem" }}>
+                        <Typography sx={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, color: theme.palette.text.primary, fontSize: "0.95rem" }}>
                             {otherUser?.name ?? "Chat"}
                         </Typography>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                            <Box sx={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", animation: "pulse 2s infinite" }} />
-                            <Typography sx={{ fontSize: "0.72rem", color: "#34d399", fontFamily: "'Outfit', sans-serif" }}>Active now</Typography>
+                            {isOnline ? (
+                                <>
+                                    <Box sx={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", animation: "pulse 2s infinite" }} />
+                                    <Typography sx={{ fontSize: "0.72rem", color: "#34d399", fontFamily: "'Outfit', sans-serif" }}>Active now</Typography>
+                                </>
+                            ) : (
+                                <Typography sx={{ fontSize: "0.72rem", color: theme.palette.text.secondary, fontFamily: "'Outfit', sans-serif" }}>
+                                    {formatLastSeen(lastSeen)}
+                                </Typography>
+                            )}
                         </Box>
                     </Box>
                 </Box>
@@ -205,7 +230,9 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                     sx={{
                         flex: 1, overflowY: "auto", p: 3,
                         display: "flex", flexDirection: "column", gap: 0.5,
-                        background: "linear-gradient(180deg, #080c14 0%, #0a0e1a 100%)",
+                        background: theme.palette.mode === 'dark' 
+                            ? `linear-gradient(180deg, ${theme.palette.background.default} 0%, ${theme.palette.background.paper} 100%)`
+                            : theme.palette.background.default,
                         position: "relative",
                     }}
                     className="hide-scrollbar"
@@ -228,14 +255,17 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                     ) : messages.length === 0 ? (
                         <Box sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
                             <Box sx={{ width: 70, height: 70, borderRadius: "22px", background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.12)", display: "flex", alignItems: "center", justifyContent: "center", mb: 2.5 }}>
-                                <Avatar sx={{ width: 48, height: 48, background: `linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontSize: "1.2rem", fontWeight: 700 }}>
+                                <Avatar 
+                                    src={otherUser?.profilePic ? (otherUser.profilePic.startsWith('http') ? otherUser.profilePic : `${BASE_URL.replace('/api', '')}/${otherUser.profilePic.replace(/\\/g, '/')}`) : undefined}
+                                    sx={{ width: 48, height: 48, background: `linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontSize: "1.2rem", fontWeight: 700 }}
+                                >
                                     {otherUser?.name?.[0]?.toUpperCase() ?? "?"}
                                 </Avatar>
                             </Box>
-                            <Typography sx={{ fontFamily: "'Outfit', sans-serif", color: "rgba(255,255,255,0.6)", fontWeight: 600, mb: 0.5 }}>
+                            <Typography sx={{ fontFamily: "'Outfit', sans-serif", color: theme.palette.text.primary, fontWeight: 600, mb: 0.5 }}>
                                 Start a conversation with {otherUser?.name ?? "this user"}
                             </Typography>
-                            <Typography sx={{ color: "rgba(255,255,255,0.25)", fontSize: "0.82rem", fontFamily: "'Outfit', sans-serif" }}>
+                            <Typography sx={{ color: theme.palette.text.secondary, fontSize: "0.82rem", fontFamily: "'Outfit', sans-serif" }}>
                                 Messages are end-to-end encrypted
                             </Typography>
                         </Box>
@@ -244,7 +274,13 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                             <Box key={date} sx={{ position: "relative", zIndex: 1 }}>
                                 {/* Date pill */}
                                 <Box sx={{ textAlign: "center", my: 2.5 }}>
-                                    <Box component="span" sx={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "20px", px: 2, py: 0.6, color: "rgba(255,255,255,0.35)", fontSize: "0.72rem", fontFamily: "'Outfit', sans-serif", letterSpacing: "0.04em" }}>
+                                    <Box component="span" sx={{ 
+                                        background: theme.palette.mode === 'dark' ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", 
+                                        border: theme.palette.mode === 'dark' ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)", 
+                                        borderRadius: "20px", px: 2, py: 0.6, 
+                                        color: theme.palette.text.secondary, 
+                                        fontSize: "0.72rem", fontFamily: "'Outfit', sans-serif", letterSpacing: "0.04em" 
+                                    }}>
                                         {formatDate(msgs[0]?.createdAt ?? null)}
                                     </Box>
                                 </Box>
@@ -285,7 +321,10 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                                                 {!isMe && (
                                                     <Box sx={{ width: 30, flexShrink: 0 }}>
                                                         {showAvatar ? (
-                                                            <Avatar sx={{ width: 30, height: 30, background: `linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontSize: "0.7rem", fontWeight: 700 }}>
+                                                            <Avatar 
+                                                                src={typeof msg.sender === 'object' && msg.sender?.profilePic ? (msg.sender.profilePic.startsWith('http') ? msg.sender.profilePic : `${BASE_URL.replace('/api', '')}/${msg.sender.profilePic.replace(/\\/g, '/')}`) : undefined}
+                                                                sx={{ width: 30, height: 30, background: `linear-gradient(135deg, ${userColor}, ${userColor}88)`, fontSize: "0.7rem", fontWeight: 700 }}
+                                                            >
                                                                 {typeof msg.sender === "object"
                                                                     ? msg.sender?.name?.[0]?.toUpperCase() ?? "?"
                                                                     : "?"}
@@ -302,26 +341,26 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                                                         px: 2, py: 1.25,
                                                         background: isMe
                                                             ? "linear-gradient(135deg, #059669, #0891b2)"
-                                                            : "rgba(255,255,255,0.06)",
+                                                            : theme.palette.mode === 'dark' ? "rgba(255,255,255,0.06)" : "#ffffff",
                                                         backdropFilter: isMe ? "none" : "blur(10px)",
                                                         border: isMe
                                                             ? "1px solid rgba(52,211,153,0.2)"
-                                                            : "1px solid rgba(255,255,255,0.08)",
+                                                            : theme.palette.mode === 'dark' ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
                                                         borderRadius: isMe
                                                             ? "18px 18px 4px 18px"
                                                             : "18px 18px 18px 4px",
                                                         boxShadow: isMe
                                                             ? "0 4px 15px rgba(5,150,105,0.25)"
-                                                            : "0 2px 8px rgba(0,0,0,0.2)",
+                                                            : "0 2px 8px rgba(0,0,0,0.05)",
                                                     }}>
-                                                        <Typography sx={{ fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem", color: isMe ? "#fff" : "rgba(255,255,255,0.85)", lineHeight: 1.55, wordBreak: "break-word" }}>
+                                                        <Typography sx={{ fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem", color: isMe ? "#fff" : theme.palette.text.primary, lineHeight: 1.55, wordBreak: "break-word" }}>
                                                             {msg.text ?? ""}
                                                         </Typography>
                                                     </Box>
 
                                                     {/* Timestamp */}
                                                     {isLast && (
-                                                        <Typography sx={{ mt: 0.4, px: 0.5, fontSize: "0.65rem", color: "rgba(255,255,255,0.2)", fontFamily: "'Outfit', sans-serif" }}>
+                                                        <Typography sx={{ mt: 0.4, px: 0.5, fontSize: "0.65rem", color: theme.palette.text.secondary, fontFamily: "'Outfit', sans-serif" }}>
                                                             {formatTime(msg.createdAt)}
                                                         </Typography>
                                                     )}
@@ -339,20 +378,20 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                 {/* INPUT AREA */}
                 <Box sx={{
                     p: 2.5,
-                    background: "rgba(13,17,26,0.95)",
+                    background: theme.palette.background.paper,
                     backdropFilter: "blur(20px)",
-                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                    borderTop: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
                 }}>
                     <Box sx={{
                         display: "flex", alignItems: "flex-end", gap: 1.5,
-                        background: "rgba(255,255,255,0.04)",
+                        background: theme.palette.mode === 'dark' ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
                         borderRadius: "18px",
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
                         p: "8px 8px 8px 16px",
                         transition: "border-color 0.2s ease",
                         "&:focus-within": { borderColor: "rgba(52,211,153,0.3)" },
                     }}>
-                        <IconButton sx={{ color: "rgba(255,255,255,0.2)", p: 0.75, "&:hover": { color: "rgba(52,211,153,0.6)", background: "transparent" } }}>
+                        <IconButton sx={{ color: theme.palette.text.secondary, p: 0.75, "&:hover": { color: "rgba(52,211,153,0.6)", background: "transparent" } }}>
                             <EmojiEmotionsOutlinedIcon sx={{ fontSize: "1.2rem" }} />
                         </IconButton>
 
@@ -367,14 +406,14 @@ const ChatArea = ({ chat, onBack, currentUser }) => {
                             maxRows={4}
                             variant="standard"
                             sx={{
-                                "& .MuiInputBase-root": { fontFamily: "'Outfit', sans-serif", fontSize: "0.9rem", color: "rgba(255,255,255,0.85)" },
+                                "& .MuiInputBase-root": { fontFamily: "'Outfit', sans-serif", fontSize: "0.9rem", color: theme.palette.text.primary },
                                 "& .MuiInput-underline:before": { display: "none" },
                                 "& .MuiInput-underline:after": { display: "none" },
-                                "& textarea::placeholder": { color: "rgba(255,255,255,0.2)", opacity: 1 },
+                                "& textarea::placeholder": { color: theme.palette.text.secondary, opacity: 1 },
                             }}
                         />
 
-                        <IconButton sx={{ color: "rgba(255,255,255,0.2)", p: 0.75, "&:hover": { color: "rgba(52,211,153,0.6)", background: "transparent" } }}>
+                        <IconButton sx={{ color: theme.palette.text.secondary, p: 0.75, "&:hover": { color: "rgba(52,211,153,0.6)", background: "transparent" } }}>
                             <AttachFileIcon sx={{ fontSize: "1.1rem" }} />
                         </IconButton>
 

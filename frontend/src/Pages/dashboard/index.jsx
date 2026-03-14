@@ -11,6 +11,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { useNavigate } from "react-router-dom";
 import DrawerAppBar from "../../components/appbar";
 import ChatArea from "../../components/ChatBox";
+import socket from "../../socket";
 
 const G = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@1,700&display=swap');
@@ -58,6 +59,8 @@ const DashboardPage = () => {
     const [loading, setLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
     const [showChat, setShowChat] = useState(false);
+    const [onlineUsers, setOnlineUsers] = useState(new Set());
+    const [lastSeenMap, setLastSeenMap] = useState({});
 
     const token = (() => {
         try { return localStorage.getItem("token") || null; }
@@ -89,6 +92,36 @@ const DashboardPage = () => {
     // Reset selectedChat if user becomes invalid
     useEffect(() => {
         if (!isValidUser(currentUser)) setSelectedChat(null);
+        else {
+            socket.emit("setup", currentUser);
+            
+            socket.on("online_users", (users) => {
+                setOnlineUsers(new Set(users));
+            });
+            
+            socket.on("user_online", (userId) => {
+                setOnlineUsers(prev => {
+                    const next = new Set(prev);
+                    next.add(userId);
+                    return next;
+                });
+            });
+            
+            socket.on("user_offline", ({ userId, lastLogin }) => {
+                setOnlineUsers(prev => {
+                    const next = new Set(prev);
+                    next.delete(userId);
+                    return next;
+                });
+                setLastSeenMap(prev => ({ ...prev, [userId]: lastLogin }));
+            });
+            
+            return () => {
+                socket.off("online_users");
+                socket.off("user_online");
+                socket.off("user_offline");
+            };
+        }
     }, [currentUser]);
 
     // Auth guard — redirect if no token or user
@@ -179,19 +212,19 @@ const DashboardPage = () => {
         <>
             <style>{G}</style>
             <DrawerAppBar />
-            <Box sx={{ display: "flex", height: "calc(100vh - 64px)", mt: "64px", background: "#080c14", fontFamily: "'Outfit', sans-serif" }}>
+            <Box sx={{ display: "flex", height: "calc(100vh - 64px)", mt: "64px", background: theme.palette.background.default, fontFamily: "'Outfit', sans-serif" }}>
 
                 {/* ── SIDEBAR ── */}
                 {showSidebar && (
                     <Box sx={{
                         width: { xs: "100%", md: 360 },
-                        borderRight: "1px solid rgba(255,255,255,0.06)",
+                        borderRight: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
                         display: "flex", flexDirection: "column",
-                        background: "#0d111a",
+                        background: theme.palette.background.paper,
                     }}>
-                        <Box sx={{ p: 3, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <Box sx={{ p: 3, borderBottom: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` }}>
                             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
-                                <Typography sx={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: "#fff", fontSize: "1.4rem", fontStyle: "italic" }}>
+                                <Typography sx={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: theme.palette.text.primary, fontSize: "1.4rem", fontStyle: "italic" }}>
                                     Messages
                                 </Typography>
                                 <Chip size="small" label={`${myChats.length} chats`} sx={{ background: "rgba(52,211,153,0.1)", color: "#34d399", fontFamily: "'Outfit', sans-serif", fontSize: "0.72rem", border: "1px solid rgba(52,211,153,0.2)", height: 24 }} />
@@ -210,12 +243,12 @@ const DashboardPage = () => {
                                 }}
                                 sx={{
                                     "& .MuiOutlinedInput-root": {
-                                        borderRadius: "14px", background: "rgba(255,255,255,0.04)", fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem",
-                                        "& fieldset": { borderColor: "rgba(255,255,255,0.08)" },
+                                        borderRadius: "14px", background: theme.palette.mode === 'dark' ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem",
+                                        "& fieldset": { borderColor: theme.palette.mode === 'dark' ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" },
                                         "&:hover fieldset": { borderColor: "rgba(52,211,153,0.3)" },
                                         "&.Mui-focused fieldset": { borderColor: "#10b981", borderWidth: 1.5 },
                                     },
-                                    "& .MuiInputBase-input": { color: "rgba(255,255,255,0.8)", "&::placeholder": { color: "rgba(255,255,255,0.25)", opacity: 1 } },
+                                    "& .MuiInputBase-input": { color: theme.palette.text.primary, "&::placeholder": { color: theme.palette.text.secondary, opacity: 1 } },
                                 }}
                             />
                         </Box>
@@ -232,15 +265,18 @@ const DashboardPage = () => {
                                                 <ListItem key={user._id || i} disablePadding sx={{ mb: 0.75 }}>
                                                     <ListItemButton onClick={() => openChat(getId(user))} sx={{ borderRadius: "14px", py: 1.5, px: 2, "&:hover": { background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.12)" }, border: "1px solid transparent", transition: "all 0.2s ease" }}>
                                                         <ListItemAvatar sx={{ minWidth: 48 }}>
-                                                            <Avatar sx={{ width: 38, height: 38, background: `linear-gradient(135deg, ${getColor(user.name)}, ${getColor(user.name)}88)`, fontWeight: 700, fontSize: "0.875rem" }}>
-                                                                {user.name ? user.name[0].toUpperCase() : "?"}
-                                                            </Avatar>
+<Avatar 
+        sx={{ width: 38, height: 38, fontWeight: 700, fontSize: "0.875rem" }}
+        src={user.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${BASE_URL.replace('/api', '')}/${user.profilePic.replace(/\\/g, '/')}`) : undefined}
+      >
+        {user.profilePic ? null : (user.name ? user.name[0].toUpperCase() : "?")}
+      </Avatar>
                                                         </ListItemAvatar>
                                                         <ListItemText
                                                             primary={user.name || "Unknown"}
                                                             secondary="Tap to start chatting"
-                                                            primaryTypographyProps={{ sx: { color: "rgba(255,255,255,0.85)", fontWeight: 600, fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem" } }}
-                                                            secondaryTypographyProps={{ sx: { color: "rgba(255,255,255,0.3)", fontFamily: "'Outfit', sans-serif", fontSize: "0.78rem" } }}
+                                                            primaryTypographyProps={{ sx: { color: theme.palette.text.primary, fontWeight: 600, fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem" } }}
+                                                            secondaryTypographyProps={{ sx: { color: theme.palette.text.secondary, fontFamily: "'Outfit', sans-serif", fontSize: "0.78rem" } }}
                                                         />
                                                         <AddIcon sx={{ color: "rgba(52,211,153,0.5)", fontSize: "1.1rem" }} />
                                                     </ListItemButton>
@@ -280,8 +316,8 @@ const DashboardPage = () => {
                                                                 <ListItemText
                                                                     primary={other?.name ?? "Chat"}
                                                                     secondary="Tap to continue"
-                                                                    primaryTypographyProps={{ sx: { color: isActive ? "#34d399" : "rgba(255,255,255,0.85)", fontWeight: isActive ? 600 : 500, fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem" } }}
-                                                                    secondaryTypographyProps={{ sx: { color: "rgba(255,255,255,0.25)", fontFamily: "'Outfit', sans-serif", fontSize: "0.78rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }}
+                                                                    primaryTypographyProps={{ sx: { color: isActive ? "#34d399" : theme.palette.text.primary, fontWeight: isActive ? 600 : 500, fontFamily: "'Outfit', sans-serif", fontSize: "0.875rem" } }}
+                                                                    secondaryTypographyProps={{ sx: { color: theme.palette.text.secondary, fontFamily: "'Outfit', sans-serif", fontSize: "0.78rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }}
                                                                 />
                                                                 {isActive && <Box sx={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", flexShrink: 0 }} />}
                                                             </ListItemButton>
@@ -295,8 +331,8 @@ const DashboardPage = () => {
                                             <Box sx={{ width: 64, height: 64, borderRadius: "20px", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.15)", display: "flex", alignItems: "center", justifyContent: "center", mx: "auto", mb: 2.5 }}>
                                                 <MessageIcon sx={{ fontSize: 28, color: "rgba(52,211,153,0.5)" }} />
                                             </Box>
-                                            <Typography sx={{ color: "rgba(255,255,255,0.6)", fontFamily: "'Outfit', sans-serif", fontWeight: 600, mb: 0.75 }}>No conversations yet</Typography>
-                                            <Typography sx={{ color: "rgba(255,255,255,0.25)", fontSize: "0.82rem", fontFamily: "'Outfit', sans-serif" }}>Search for people to start chatting</Typography>
+                                            <Typography sx={{ color: theme.palette.text.primary, fontFamily: "'Outfit', sans-serif", fontWeight: 600, mb: 0.75 }}>No conversations yet</Typography>
+                                            <Typography sx={{ color: theme.palette.text.secondary, fontSize: "0.82rem", fontFamily: "'Outfit', sans-serif" }}>Search for people to start chatting</Typography>
                                         </Box>
                                     )}
                                 </Box>
@@ -309,12 +345,14 @@ const DashboardPage = () => {
                     canShowChat = isValidUser(currentUser) && selectedChat._id exists
                     This prevents ChatArea mounting before the useEffect sets currentUser */}
                 {(!isMobile || showChat) && (
-                    <Box sx={{ flex: 1, display: "flex", flexDirection: "column", background: "#080c14", position: "relative", overflow: "hidden" }}>
+                    <Box sx={{ flex: 1, display: "flex", flexDirection: "column", background: theme.palette.background.default, position: "relative", overflow: "hidden" }}>
                         {canShowChat ? (
                             <ChatArea
                                 chat={selectedChat}
                                 onBack={() => { setShowChat(false); setSelectedChat(null); }}
                                 currentUser={currentUser}
+                                onlineUsers={onlineUsers}
+                                lastSeenMap={lastSeenMap}
                             />
                         ) : (
                             <>
@@ -326,10 +364,10 @@ const DashboardPage = () => {
                                             <path d="M4 8h16M4 12h10M4 16h13" stroke="rgba(52,211,153,0.7)" strokeWidth="2" strokeLinecap="round" />
                                         </svg>
                                     </Box>
-                                    <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: "1.8rem", fontWeight: 700, color: "rgba(255,255,255,0.85)", fontStyle: "italic", mb: 1 }}>
+                                    <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: "1.8rem", fontWeight: 700, color: theme.palette.text.primary, fontStyle: "italic", mb: 1 }}>
                                         Welcome back, {name ? name.split(" ")[0] : "there"} 👋
                                     </Typography>
-                                    <Typography sx={{ color: "rgba(255,255,255,0.3)", fontSize: "0.9rem", fontFamily: "'Outfit', sans-serif", mb: 3.5 }}>
+                                    <Typography sx={{ color: theme.palette.text.secondary, fontSize: "0.9rem", fontFamily: "'Outfit', sans-serif", mb: 3.5 }}>
                                         Select a conversation or search for someone new
                                     </Typography>
                                     <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.15)", borderRadius: "12px", px: 2.5, py: 1.2, cursor: "pointer", "&:hover": { background: "rgba(52,211,153,0.12)" }, transition: "all 0.2s ease" }}>
@@ -343,11 +381,11 @@ const DashboardPage = () => {
                 )}
             </Box>
 
-            {isMobile && !showChat && (
+            {/* {isMobile && !showChat && (
                 <Fab onClick={() => setText("")} sx={{ position: "fixed", bottom: 24, right: 24, background: "linear-gradient(135deg, #10b981, #0891b2)", boxShadow: "0 4px 20px rgba(16,185,129,0.4)", "&:hover": { background: "linear-gradient(135deg, #059669, #0891b2)", transform: "scale(1.05)" }, transition: "all 0.2s ease" }}>
                     <AddIcon sx={{ color: "#fff" }} />
                 </Fab>
-            )}
+            )} */}
         </>
     );
 };

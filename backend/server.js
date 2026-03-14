@@ -20,6 +20,9 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/chats", require("./routes/chatRoutes"));
 app.use("/api/messages", require("./routes/messageRoutes"));
 
+const path = require('path');
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 const server = http.createServer(app);
 
 const io = new Server(server, {

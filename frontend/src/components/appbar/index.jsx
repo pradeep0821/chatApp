@@ -1,13 +1,14 @@
 import { useState } from "react";
 import {
     AppBar, Toolbar, Typography, Box, Avatar, IconButton,
-    Menu, MenuItem, Divider, ListItemIcon, Tooltip
+    Menu, MenuItem, Divider, ListItemIcon, Tooltip, useTheme
 } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { useNavigate } from "react-router-dom";
+import { useThemeContext } from "../../context/ThemeContext";
 
 const G = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@1,700&display=swap');
@@ -21,6 +22,8 @@ const getColor = (name) => {
 
 const DrawerAppBar = () => {
     const navigate = useNavigate();
+    const { theme } = useThemeContext();
+    const muiTheme = useTheme();
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
 
@@ -51,9 +54,9 @@ const DrawerAppBar = () => {
                 position="fixed"
                 elevation={0}
                 sx={{
-                    background: "rgba(13,17,26,0.95)",
+                    background: muiTheme.palette.background.paper,
                     backdropFilter: "blur(20px)",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                    borderBottom: `1px solid ${muiTheme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
                     boxShadow: "0 1px 0 rgba(52,211,153,0.08)",
                     zIndex: (theme) => theme.zIndex.drawer + 1,
                 }}
@@ -75,7 +78,7 @@ const DrawerAppBar = () => {
                             fontStyle: "italic",
                             fontWeight: 700,
                             fontSize: "1.2rem",
-                            color: "#fff",
+                            color: muiTheme.palette.text.primary,
                             letterSpacing: "-0.01em",
                             display: { xs: "none", sm: "block" },
                         }}>
@@ -88,7 +91,7 @@ const DrawerAppBar = () => {
                         <Typography sx={{
                             fontFamily: "'Outfit', sans-serif",
                             fontSize: "0.85rem",
-                            color: "rgba(255,255,255,0.45)",
+                            color: muiTheme.palette.text.secondary,
                             display: { xs: "none", sm: "block" },
                         }}>
                             {userName}
@@ -96,18 +99,18 @@ const DrawerAppBar = () => {
 
                         <Tooltip title="Account" arrow>
                             <IconButton onClick={handleOpen} sx={{ p: 0.5 }}>
-                                <Avatar sx={{
-                                    width: 36, height: 36,
-                                    background: `linear-gradient(135deg, ${userColor}, ${userColor}88)`,
-                                    fontFamily: "'Outfit', sans-serif",
-                                    fontWeight: 700,
-                                    fontSize: "0.9rem",
-                                    cursor: "pointer",
-                                    border: open ? "2px solid #34d399" : "2px solid transparent",
-                                    transition: "border-color 0.2s ease",
-                                }}>
-                                    {userName[0]?.toUpperCase() || "U"}
-                                </Avatar>
+                                <Avatar 
+                                    sx={{
+                                      width: 36, height: 36,
+                                      fontFamily: "'Outfit', sans-serif",
+                                      fontWeight: 700,
+                                      fontSize: "0.9rem",
+                                      cursor: "pointer",
+                                    }}
+                                    src={user?.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${user.profilePic.replace(/\\/g, '/')}`) : undefined}
+                                  >
+                                    {user?.profilePic ? null : (userName[0]?.toUpperCase() || "U")}
+                                  </Avatar>
                             </IconButton>
                         </Tooltip>
                     </Box>
@@ -125,22 +128,22 @@ const DrawerAppBar = () => {
                     sx: {
                         mt: 1,
                         minWidth: 200,
-                        background: "#0d111a",
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        background: muiTheme.palette.background.paper,
+                        border: `1px solid ${muiTheme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
                         borderRadius: "14px",
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                        boxShadow: muiTheme.palette.mode === 'dark' ? "0 8px 32px rgba(0,0,0,0.4)" : "0 8px 32px rgba(0,0,0,0.1)",
                         overflow: "visible",
                         "& .MuiMenuItem-root": {
                             fontFamily: "'Outfit', sans-serif",
                             fontSize: "0.875rem",
-                            color: "rgba(255,255,255,0.7)",
+                            color: muiTheme.palette.text.secondary,
                             borderRadius: "8px",
                             mx: 0.75,
                             px: 1.5,
                             py: 1,
                             "&:hover": {
-                                background: "rgba(52,211,153,0.08)",
-                                color: "#fff",
+                                background: muiTheme.palette.mode === 'dark' ? "rgba(52,211,153,0.08)" : "rgba(52,211,153,0.15)",
+                                color: muiTheme.palette.text.primary,
                             },
                         },
                     },
@@ -148,27 +151,33 @@ const DrawerAppBar = () => {
             >
                 {/* User info header */}
                 <Box sx={{ px: 2.5, py: 1.5, mb: 0.5 }}>
-                    <Typography sx={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, color: "#fff", fontSize: "0.9rem" }}>
+                    <Typography sx={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, color: muiTheme.palette.text.primary, fontSize: "0.9rem" }}>
                         {userName}
                     </Typography>
-                    <Typography sx={{ fontFamily: "'Outfit', sans-serif", color: "rgba(255,255,255,0.3)", fontSize: "0.75rem", mt: 0.2 }}>
+                    <Typography sx={{ fontFamily: "'Outfit', sans-serif", color: muiTheme.palette.text.secondary, fontSize: "0.75rem", mt: 0.2 }}>
                         {user?.email || "Signed in"}
                     </Typography>
                 </Box>
 
-                <Divider sx={{ borderColor: "rgba(255,255,255,0.06)", mx: 1.5, mb: 0.5 }} />
+                <Divider sx={{ borderColor: muiTheme.palette.mode === 'dark' ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", mx: 1.5, mb: 0.5 }} />
 
-                <MenuItem onClick={handleClose}>
-                    <ListItemIcon><PersonOutlineIcon sx={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)" }} /></ListItemIcon>
+                <MenuItem onClick={() => {
+                    handleClose();
+                    navigate('/profile');
+                  }}>
+                    <ListItemIcon><PersonOutlineIcon sx={{ fontSize: "1rem", color: muiTheme.palette.text.secondary }} /></ListItemIcon>
                     Profile
                 </MenuItem>
 
-                <MenuItem onClick={handleClose}>
-                    <ListItemIcon><SettingsOutlinedIcon sx={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)" }} /></ListItemIcon>
+                <MenuItem onClick={() => {
+                    handleClose();
+                    navigate('/settings');
+                }}>
+                    <ListItemIcon><SettingsOutlinedIcon sx={{ fontSize: "1rem", color: muiTheme.palette.text.secondary }} /></ListItemIcon>
                     Settings
                 </MenuItem>
 
-                <Divider sx={{ borderColor: "rgba(255,255,255,0.06)", mx: 1.5, my: 0.5 }} />
+                <Divider sx={{ borderColor: muiTheme.palette.mode === 'dark' ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", mx: 1.5, my: 0.5 }} />
 
                 <MenuItem onClick={handleLogout} sx={{ color: "#f87171 !important", "&:hover": { background: "rgba(248,113,113,0.08) !important" } }}>
                     <ListItemIcon><LogoutIcon sx={{ fontSize: "1rem", color: "#f87171" }} /></ListItemIcon>

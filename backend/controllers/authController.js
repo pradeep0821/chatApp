@@ -50,9 +50,12 @@ exports.login = async (req, res) => {
   res.status(200).json({
     token,
     user: {
+      _id: user._id,
       id: user._id,
       name: user.name,
       email: user.email,
+      profilePic: user.profilePic,
+      theme: user.theme
     },
   });
 };
