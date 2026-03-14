@@ -380,12 +380,6 @@ const DashboardPage = () => {
                     </Box>
                 )}
             </Box>
-
-            {/* {isMobile && !showChat && (
-                <Fab onClick={() => setText("")} sx={{ position: "fixed", bottom: 24, right: 24, background: "linear-gradient(135deg, #10b981, #0891b2)", boxShadow: "0 4px 20px rgba(16,185,129,0.4)", "&:hover": { background: "linear-gradient(135deg, #059669, #0891b2)", transform: "scale(1.05)" }, transition: "all 0.2s ease" }}>
-                    <AddIcon sx={{ color: "#fff" }} />
-                </Fab>
-            )} */}
         </>
     );
 };

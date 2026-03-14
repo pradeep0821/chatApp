@@ -30,7 +30,6 @@ const ProfilePage = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const token = localStorage.getItem('token');
   const RAW_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
