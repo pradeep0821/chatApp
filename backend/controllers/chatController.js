@@ -1,24 +1,35 @@
 const Chat = require("../models/Chat");
 
+const USER_FIELDS = "name email profilePic isOnline lastLogin";
+
 exports.accessChat = async (req, res) => {
-  const { userId } = req.body;
-  const myId = req.user.id;
+  try {
+    const { userId } = req.body;
+    const myId = req.user.id;
+    if (!userId) return res.status(400).json({ error: "userId is required" });
 
-  let chat = await Chat.findOne({
-    users: { $all: [myId, userId] }
-  }).populate("users", "name email");
+    let chat = await Chat.findOne({
+      users: { $all: [myId, userId] }
+    }).populate("users", USER_FIELDS);
 
-  if (!chat) {
-    chat = await Chat.create({ users: [myId, userId] });
+    if (!chat) {
+      const created = await Chat.create({ users: [myId, userId] });
+      chat = await Chat.findById(created._id).populate("users", USER_FIELDS);
+    }
+
+    res.json(chat);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  res.json(chat);
 };
 
 exports.getMyChats = async (req, res) => {
-  const chats = await Chat.find({
-    users: req.user.id
-  }).populate("users", "name email");
-
-  res.json(chats);
+  try {
+    const chats = await Chat.find({ users: req.user.id })
+      .populate("users", USER_FIELDS)
+      .sort({ updatedAt: -1 });
+    res.json(chats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

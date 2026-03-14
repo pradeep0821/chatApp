@@ -44,22 +44,23 @@ const themes = {
   }
 };
 
-const getInitialTheme = () => {
-  let saved = localStorage.getItem('theme') || 'dark';
+// ─── Key fix: read ONLY from user object, never from standalone 'theme' key ──
+// The standalone 'theme' key is shared across all users on this browser,
+// so User 1 selecting 'light' would pollute User 2's session.
+// We ONLY trust user.theme from the currently logged-in user object.
+const getThemeFromUser = () => {
   try {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
-      if (user.theme) saved = user.theme;
+      if (user?.theme && themes[user.theme]) return user.theme;
     }
   } catch (e) {}
-  
-  if (!themes[saved]) saved = 'dark';
-  return saved;
+  return 'dark'; // safe default — only used when no user is logged in
 };
 
 const initialState = {
-  theme: getInitialTheme()
+  theme: getThemeFromUser()
 };
 
 const reducer = (state, action) => {
@@ -75,35 +76,50 @@ export const ThemeProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      let saved = localStorage.getItem('theme');
-      try {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          if (user.theme) saved = user.theme;
-        }
-      } catch (e) {}
-
-      if (saved && themes[saved]) {
-        dispatch({ type: 'SET_THEME', payload: saved });
-      }
+    // Called on mount AND on 'user-login' event (fired from LoginPage after login).
+    // Reads the CURRENT user's theme from their user object in localStorage.
+    // This is keyed to the user object — not a global key — so different
+    // users on the same browser always get their own theme.
+    const syncThemeFromUser = () => {
+      const newTheme = getThemeFromUser();
+      dispatch({ type: 'SET_THEME', payload: newTheme });
     };
 
-    handleStorageChange();
-    window.addEventListener('user-login', handleStorageChange);
-    return () => window.removeEventListener('user-login', handleStorageChange);
+    syncThemeFromUser();
+
+    // LoginPage fires this after: localStorage.setItem('user', JSON.stringify(user))
+    // So by the time the handler runs, the new user's object (with their theme) is in localStorage.
+    window.addEventListener('user-login', syncThemeFromUser);
+    return () => window.removeEventListener('user-login', syncThemeFromUser);
   }, []);
 
+  // When theme changes, update data-theme attribute for any CSS variable consumers.
+  // Do NOT write to a standalone 'theme' key — that's what caused the cross-user bleed.
   useEffect(() => {
-    localStorage.setItem('theme', state.theme);
     document.body.setAttribute('data-theme', state.theme);
   }, [state.theme]);
+
+  // Called by SettingsPage after saving to DB.
+  // Also updates the user object in localStorage so the theme persists on next login.
+  const setTheme = (newTheme) => {
+    if (!themes[newTheme]) return;
+    dispatch({ type: 'SET_THEME', payload: newTheme });
+
+    // Keep user object in localStorage in sync so next login reads correct theme.
+    // This does NOT write a shared 'theme' key — only updates the user object.
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        localStorage.setItem('user', JSON.stringify({ ...user, theme: newTheme }));
+      }
+    } catch (e) {}
+  };
 
   const muiTheme = createTheme(themes[state.theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme: state.theme, setTheme: (t) => dispatch({ type: 'SET_THEME', payload: t }) }}>
+    <ThemeContext.Provider value={{ theme: state.theme, setTheme }}>
       <MuiThemeProvider theme={muiTheme}>
         {children}
       </MuiThemeProvider>
