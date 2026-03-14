@@ -8,7 +8,6 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { useNavigate } from "react-router-dom";
-import { useThemeContext } from "../../context/ThemeContext";
 
 const G = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@1,700&display=swap');
@@ -22,7 +21,6 @@ const getColor = (name) => {
 
 const DrawerAppBar = () => {
     const navigate = useNavigate();
-    const { setTheme } = useThemeContext();
     const muiTheme = useTheme();
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
