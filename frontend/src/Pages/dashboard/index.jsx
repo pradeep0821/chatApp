@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
     Box, TextField, Typography, List, ListItem, ListItemButton,
     ListItemAvatar, ListItemText, InputAdornment, Avatar, Badge,
-    Fab, useMediaQuery, useTheme, Chip
+    useMediaQuery, useTheme, Chip
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";

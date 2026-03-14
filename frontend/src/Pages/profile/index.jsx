@@ -30,19 +30,11 @@ const ProfilePage = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [focused, setFocused] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const token = localStorage.getItem('token');
   const RAW_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   const BASE_URL = RAW_URL.endsWith('/api') ? RAW_URL : `${RAW_URL}/api`;
-
-  useEffect(() => {
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    fetchUser();
-  }, [token, navigate, fetchUser]);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -58,6 +50,14 @@ const ProfilePage = () => {
       setLoading(false);
     }
   }, [BASE_URL, token]);
+
+  useEffect(() => {
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    fetchUser();
+  }, [token, navigate, fetchUser]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -223,8 +223,6 @@ const ProfilePage = () => {
                             label="Display Name"
                             value={formData.name}
                             onChange={(e) => setFormData({...formData, name: e.target.value})}
-                            onFocus={() => setFocused('name')}
-                            onBlur={() => setFocused('')}
                             fullWidth
                             sx={inputSx("name")}
                         />
@@ -233,8 +231,6 @@ const ProfilePage = () => {
                             type="email"
                             value={formData.email}
                             onChange={(e) => setFormData({...formData, email: e.target.value})}
-                            onFocus={() => setFocused('email')}
-                            onBlur={() => setFocused('')}
                             fullWidth
                             sx={inputSx("email")}
                         />
@@ -243,8 +239,6 @@ const ProfilePage = () => {
                             type="password"
                             value={formData.password}
                             onChange={(e) => setFormData({...formData, password: e.target.value})}
-                            onFocus={() => setFocused('password')}
-                            onBlur={() => setFocused('')}
                             fullWidth
                             placeholder="Leave blank to keep current"
                             sx={inputSx("password")}
